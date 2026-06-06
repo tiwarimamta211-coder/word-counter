@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordLens – Smart Word Counter</title>
+
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161f;
+    --surface2: #1a1e2a;
+    --border: #252a38;
+    --accent: #7ef2c0;
+    --accent2: #f27e9b;
+    --accent3: #7eaff2;
+    --text: #e8eaf2;
+    --muted: #6b7190;
+    --card-shadow: 0 4px 32px rgba(0,0,0,0.5);
+    --glow: 0 0 24px rgba(126,242,192,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Ambient gradient blobs */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-1 { width: 500px; height: 500px; background: var(--accent); top: -100px; left: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -100px; right: -100px; }
+  .blob-3 { width: 300px; height: 300px; background: var(--accent3); top: 40%; left: 50%; }
+
+  /* ── Layout ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .logo-word {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-lens {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--accent);
+  }
+
+  .logo-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-left: 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); border-color: var(--muted); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0d0f14;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .btn-primary:hover { background: #5ee8ad; box-shadow: var(--glow); }
+
+  /* ── Top Ad Banner ── */
+  .ad-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    margin-bottom: 28px;
+    overflow: hidden;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ad-label {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── Main Grid ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Editor Panel ── */
+  .editor-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .editor-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f56; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #27c93f; }
+
+  .toolbar-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+
+  .char-limit-info {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  #editor {
+    width: 100%;
+    min-height: 280px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    padding: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--text);
+    caret-color: var(--accent);
+  }
+
+  #editor::placeholder { color: var(--muted); font-style: italic; }
+
+  /* ── Stats Bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+
+  .stat-cell {
+    background: var(--surface);
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    transition: background 0.2s;
+  }
+
+  .stat-cell:hover { background: var(--surface2); }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 30px;
+    color: var(--text);
+    line-height: 1;
+    display: block;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-top: 6px;
+    display: block;
+  }
+
+  .stat-cell.accent .stat-value { color: var(--accent); }
+  .stat-cell.accent2 .stat-value { color: var(--accent2); }
+  .stat-cell.accent3 .stat-value { color: var(--accent3); }
+
+  /* Reading time badge */
+  .reading-time-badge {
+    background: linear-gradient(135deg, rgba(126,242,192,0.1), rgba(126,175,242,0.1));
+    border: 1px solid rgba(126,242,192,0.2);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .reading-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+
+  .reading-info { flex: 1; }
+  .reading-title {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .reading-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--accent);
+  }
+
+  .reading-detail {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── Mid Ad ── */
+  .ad-mid {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 15px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: rgba(126,242,192,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(126,242,192,0.3);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* Keyword list */
+  #keyword-list {
+    padding: 14px;
+    max-height: 380px;
+    overflow-y: auto;
+  }
+
+  #keyword-list::-webkit-scrollbar { width: 4px; }
+  #keyword-list::-webkit-scrollbar-track { background: transparent; }
+  #keyword-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .keyword-empty {
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+    padding: 24px 0;
+  }
+
+  .keyword-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    margin-bottom: 3px;
+  }
+
+  .keyword-item:hover { background: var(--surface2); }
+
+  .kw-rank {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .kw-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .kw-word {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .kw-bar-bg {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .kw-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+  }
+
+  .kw-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .kw-density {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(126,242,192,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Settings card */
+  .settings-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .setting-label {
+    font-size: 13px;
+    color: var(--muted);
+    flex: 1;
+  }
+
+  .toggle {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 2px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: rgba(126,242,192,0.2); border-color: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--accent); }
+
+  select.setting-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    outline: none;
+  }
+
+  select.setting-select:focus { border-color: var(--accent); }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .progress-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .progress-label { font-size: 12px; color: var(--muted); }
+  .progress-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  .progress-bar-bg {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    max-width: 100%;
+  }
+
+  /* ── Highlight toggle ── */
+  .highlight-word { background: rgba(126,242,192,0.2); border-radius: 2px; padding: 0 1px; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+    padding-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .footer-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    color: var(--muted);
+  }
+  .footer-logo em { color: var(--accent); font-style: italic; }
+
+  .footer-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up { animation: fadeUp 0.5s ease forwards; }
+  .fade-up:nth-child(2) { animation-delay: 0.08s; }
+  .fade-up:nth-child(3) { animation-delay: 0.16s; }
+  .fade-up:nth-child(4) { animation-delay: 0.24s; }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease infinite;
+    margin-right: 6px;
+  }
+
+  /* number flip */
+  .stat-value {
+    transition: color 0.2s;
+  }
+  .stat-value.updated {
+    color: var(--accent) !important;
+  }
+
+  /* ── Mobile tweaks ── */
+  @media (max-width: 600px) {
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+    .logo-word, .logo-lens { font-size: 22px; }
+    #editor { min-height: 200px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <span class="logo-word">Word</span><span class="logo-lens">Lens</span>
+      <span class="logo-tag">v2.0</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="copyText()">⎘ Copy</button>
+      <button class="btn btn-ghost" onclick="downloadText()">↓ Export</button>
+      <button class="btn btn-primary" onclick="clearText()">✕ Clear</button>
+    </div>
+  </header>
+
+  <!-- Top Ad Banner -->
+  <div class="ad-banner">
+    <span class="ad-label">Advertisement</span>
+    <ins class="adsbygoogle"
+         style="display:block;width:100%;height:90px;"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="1111111111"
+         data-ad-format="horizontal"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+
+    <!-- Editor Panel -->
+    <div class="editor-panel">
+
+      <!-- Editor Card -->
+      <div class="editor-card fade-up">
+        <div class="editor-toolbar">
+          <div class="toolbar-left">
+            <div class="dot dot-r"></div>
+            <div class="dot dot-y"></div>
+            <div class="dot dot-g"></div>
+            <span class="toolbar-title"><span class="live-dot"></span>Live Analyzer</span>
+          </div>
+          <span class="char-limit-info" id="char-limit-display"></span>
+        </div>
+        <textarea id="editor" placeholder="Start typing or paste your text here… WordLens analyzes it in real time."></textarea>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="stats-bar fade-up">
+        <div class="stat-cell accent">
+          <span class="stat-value" id="word-count">0</span>
+          <span class="stat-label">Words</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-value" id="char-count">0</span>
+          <span class="stat-label">Characters</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-value" id="char-no-space">0</span>
+          <span class="stat-label">No Spaces</span>
+        </div>
+        <div class="stat-cell accent2">
+          <span class="stat-value" id="sentence-count">0</span>
+          <span class="stat-label">Sentences</span>
+        </div>
+        <div class="stat-cell accent3">
+          <span class="stat-value" id="para-count">0</span>
+          <span class="stat-label">Paragraphs</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-value" id="unique-words">0</span>
+          <span class="stat-label">Unique</span>
+        </div>
+      </div>
+
+      <!-- Reading Time Badge -->
+      <div class="reading-time-badge fade-up">
+        <div class="reading-icon">📖</div>
+        <div class="reading-info">
+          <div class="reading-title">Estimated Reading Time</div>
+          <div class="reading-value" id="reading-time">0 sec</div>
+          <div class="reading-detail" id="reading-detail">at 200 wpm · 0 words</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="reading-title" style="margin-bottom:4px;">Speaking Time</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;color:var(--accent3);" id="speaking-time">0 sec</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;">at 130 wpm</div>
+        </div>
+      </div>
+
+      <!-- Word Limit Progress (only when limit set) -->
+      <div class="progress-wrap fade-up" id="progress-section" style="display:none;">
+        <div class="progress-top">
+          <span class="progress-label">Word Limit Progress</span>
+          <span class="progress-pct" id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+
+      <!-- Keyword Density -->
+      <div class="card fade-up">
+        <div class="card-header">
+          <div class="card-title">
+            🔍 Keyword Density
+          </div>
+          <span class="card-badge" id="kw-badge">0 words</span>
+        </div>
+        <div id="keyword-list">
+          <div class="keyword-empty">Start typing to see keyword analysis…</div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="card fade-up">
+        <div class="card-header">
+          <div class="card-title">⚙️ Settings</div>
+        </div>
+        <div class="settings-body">
+
+          <div class="setting-row">
+            <span class="setting-label">Word Limit</span>
+            <select class="setting-select" id="word-limit-select" onchange="updateWordLimit()">
+              <option value="0">None</option>
+              <option value="100">100</option>
+              <option value="250">250</option>
+              <option value="500">500</option>
+              <option value="750">750</option>
+              <option value="1000">1,000</option>
+              <option value="2000">2,000</option>
+              <option value="5000">5,000</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-label">Reading Speed (WPM)</span>
+            <select class="setting-select" id="wpm-select" onchange="updateStats()">
+              <option value="150">Slow · 150</option>
+              <option value="200" selected>Avg · 200</option>
+              <option value="250">Fast · 250</option>
+              <option value="300">Speed · 300</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-label">Ignore stop words</span>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-stopwords" onchange="updateStats()" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-label">Show top keywords</span>
+            <select class="setting-select" id="kw-limit-select" onchange="updateStats()">
+              <option value="5">Top 5</option>
+              <option value="10" selected>Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="50">Top 50</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Sidebar Ad -->
+      <div class="ad-mid">
+        <span class="ad-label">Advertisement</span>
+        <ins class="adsbygoogle"
+             style="display:block;width:100%;height:250px;"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="2222222222"
+             data-ad-format="rectangle"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Bottom Ad Banner -->
+  <div class="ad-banner" style="margin-top:28px;">
+    <span class="ad-label">Advertisement</span>
+    <ins class="adsbygoogle"
+         style="display:block;width:100%;height:90px;"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="3333333333"
+         data-ad-format="horizontal"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-logo">Word<em>Lens</em></div>
+    <div class="footer-note">Real-time text analysis · No data stored</div>
+    <div class="footer-note">© 2025 WordLens</div>
+  </footer>
+
+</div>
+
+<script>
+  // ── Stop words list ──
+  const STOP_WORDS = new Set([
+    'a','an','the','and','but','or','nor','for','yet','so','as','at','by','from',
+    'in','into','of','off','on','onto','out','over','per','than','to','up','via',
+    'with','is','are','was','were','be','been','being','have','has','had','do',
+    'does','did','will','would','could','should','may','might','must','shall',
+    'can','i','you','he','she','it','we','they','me','him','her','us','them',
+    'my','your','his','its','our','their','this','that','these','those','what',
+    'which','who','whom','when','where','why','how','all','any','both','each',
+    'few','more','most','other','some','such','no','not','only','same','than',
+    'too','very','just','because','if','then','there','about','above','after',
+    'before','between','during','through','under','while','without','although',
+    'also','well','back','even','still','way','take','get','go','make','know',
+    'think','see','come','want','look','use','find','give','tell','work','call',
+    'try','ask','need','seem','feel','leave','put','bring','begin','show','hear',
+    'play','run','move','live','believe','hold','buy','happen','write','provide',
+    'sit','stand','lose','pay','meet','include','continue','set','learn','change',
+    'lead','understand','watch','follow','stop','create','speak','read','spend',
+    'grow','open','walk','win','offer','remember','love','consider','appear','buy',
+    'wait','serve','die','send','expect','build','stay','fall','cut','reach','kill',
+    'remain','suggest','raise','pass','sell','require','report','decide','pull'
+  ]);
+
+  let wordLimit = 0;
+
+  const editor = document.getElementById('editor');
+
+  editor.addEventListener('input', updateStats);
+
+  function updateStats() {
+    const text = editor.value;
+    const words = getWords(text);
+    const wordCount = words.length;
+    const charCount = text.length;
+    const charNoSpace = text.replace(/\s/g, '').length;
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length || (text.trim().length > 0 ? 1 : 0);
+    const uniqueWords = new Set(words.map(w => w.toLowerCase())).size;
+
+    // Update stat cells with animation
+    setStatVal('word-count', wordCount);
+    setStatVal('char-count', charCount);
+    setStatVal('char-no-space', charNoSpace);
+    setStatVal('sentence-count', sentences);
+    setStatVal('para-count', paragraphs);
+    setStatVal('unique-words', uniqueWords);
+
+    // Reading/speaking time
+    const wpm = parseInt(document.getElementById('wpm-select').value);
+    const readSecs = Math.round((wordCount / wpm) * 60);
+    const speakSecs = Math.round((wordCount / 130) * 60);
+
+    document.getElementById('reading-time').textContent = formatTime(readSecs);
+    document.getElementById('reading-detail').textContent = `at ${wpm} wpm · ${wordCount} words`;
+    document.getElementById('speaking-time').textContent = formatTime(speakSecs);
+
+    // Word limit
+    if (wordLimit > 0) {
+      const pct = Math.min(100, Math.round((wordCount / wordLimit) * 100));
+      document.getElementById('progress-section').style.display = 'flex';
+      document.getElementById('progress-pct').textContent = pct + '%';
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-bar').style.background = pct >= 100
+        ? 'linear-gradient(90deg,#f27e9b,#f27e9b)'
+        : 'linear-gradient(90deg,var(--accent),var(--accent3))';
+      document.getElementById('char-limit-display').textContent = `${wordCount} / ${wordLimit} words`;
+    } else {
+      document.getElementById('progress-section').style.display = 'none';
+      document.getElementById('char-limit-display').textContent = '';
+    }
+
+    // Keywords
+    buildKeywordList(words, wordCount);
+  }
+
+  function getWords(text) {
+    return text.trim().split(/\s+/).filter(w => w.replace(/[^a-zA-Z0-9']/g,'').length > 0);
+  }
+
+  function setStatVal(id, val) {
+    const el = document.getElementById(id);
+    const old = el.textContent;
+    if (String(old) !== String(val)) {
+      el.textContent = val;
+      el.classList.add('updated');
+      setTimeout(() => el.classList.remove('updated'), 600);
+    }
+  }
+
+  function formatTime(secs) {
+    if (secs < 60) return secs + ' sec';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return s > 0 ? `${m} min ${s} sec` : `${m} min`;
+  }
+
+  function buildKeywordList(words, totalWords) {
+    const ignoreStop = document.getElementById('toggle-stopwords').checked;
+    const kwLimit = parseInt(document.getElementById('kw-limit-select').value);
+
+    const freq = {};
+    words.forEach(w => {
+      const clean = w.toLowerCase().replace(/[^a-zA-Z0-9']/g, '');
+      if (clean.length < 2) return;
+      if (ignoreStop && STOP_WORDS.has(clean)) return;
+      freq[clean] = (freq[clean] || 0) + 1;
+    });
+
+    const sorted = Object.entries(freq).sort((a,b) => b[1] - a[1]).slice(0, kwLimit);
+    const maxCount = sorted.length > 0 ? sorted[0][1] : 1;
+
+    const kwBadge = document.getElementById('kw-badge');
+    const kwList = document.getElementById('keyword-list');
+
+    kwBadge.textContent = sorted.length + ' words';
+
+    if (sorted.length === 0) {
+      kwList.innerHTML = '<div class="keyword-empty">Start typing to see keyword analysis…</div>';
+      return;
+    }
+
+    kwList.innerHTML = sorted.map(([word, count], i) => {
+      const density = totalWords > 0 ? ((count / totalWords) * 100).toFixed(1) : 0;
+      const barPct = Math.round((count / maxCount) * 100);
+      return `
+        <div class="keyword-item">
+          <span class="kw-rank">${i+1}</span>
+          <div class="kw-bar-wrap">
+            <span class="kw-word">${word}</span>
+            <div class="kw-bar-bg">
+              <div class="kw-bar-fill" style="width:${barPct}%"></div>
+            </div>
+          </div>
+          <span class="kw-count">×${count}</span>
+          <span class="kw-density">${density}%</span>
+        </div>`;
+    }).join('');
+  }
+
+  function updateWordLimit() {
+    wordLimit = parseInt(document.getElementById('word-limit-select').value);
+    updateStats();
+  }
+
+  function clearText() {
+    if (editor.value && !confirm('Clear all text?')) return;
+    editor.value = '';
+    updateStats();
+  }
+
+  function copyText() {
+    if (!editor.value) return;
+    navigator.clipboard.writeText(editor.value).then(() => {
+      const btn = document.querySelector('.btn-ghost');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => btn.textContent = orig, 1800);
+    });
+  }
+
+  function downloadText() {
+    if (!editor.value) return;
+    const blob = new Blob([editor.value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wordlens-export.txt';
+    a.click();
+  }
+
+  // Init
+  updateStats();
+</script>
+</body>
+</html>
